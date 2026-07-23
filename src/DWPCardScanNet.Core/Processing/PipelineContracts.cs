@@ -101,6 +101,9 @@ namespace DWPCardScanNet.Core.Processing
         public int GroupsFailed { get; set; }
         public List<string> WrittenPackets { get; } = new List<string>();
         public List<string> Errors { get; } = new List<string>();
+
+        /// <summary>Path to the written group status report (null if no report folder is configured).</summary>
+        public string StatusReportPath { get; set; }
     }
 
     /// <summary>Processes queued card groups into NIST packets. Replaces VB6 frmMain.cmdProcessGroup_Click.</summary>

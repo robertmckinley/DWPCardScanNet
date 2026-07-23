@@ -331,11 +331,16 @@ namespace DWPCardScanNet
 
             GroupingResult result = _grouping.AddCardToGroup(
                 card.CardName, txtKeyValue.Text, _currentSourceBmp, lblKeyPrefix.Text,
-                cardPreview.GetAdjustedRegions());
+                cardPreview.GetAdjustedRegions(),
+                (baseKey, newKey) => MessageBox.Show(
+                    "Group '" + baseKey + "' already contains this card or a conflicting finger.\n\n" +
+                    "Create duplicate group '" + newKey + "'?",
+                    "Create Duplicate Group?", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
 
             if (!result.Success)
             {
-                MessageBox.Show(result.ErrorMessage, "Add to Group", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                if (result.ErrorMessage != null)   // null == operator cancelled the duplicate-group prompt
+                    MessageBox.Show(result.ErrorMessage, "Add to Group", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -381,19 +386,57 @@ namespace DWPCardScanNet
             }
             finally { Cursor = Cursors.Default; }
 
-            var msg = "Groups processed: " + result.GroupsProcessed + "\nFailed: " + result.GroupsFailed;
-            if (result.Errors.Count > 0) msg += "\n\nErrors:\n" + string.Join("\n", result.Errors.ToArray());
-            MessageBox.Show(msg, "Process Card Groups",
-                MessageBoxButtons.OK, result.GroupsFailed > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
-
             LoadQueue();
             LoadGroupsTree();
+
+            // Show the status report (VB6 DisplayGroupStatusReport) when configured and available;
+            // otherwise fall back to a summary message box.
+            if (_defaults.DisplayGroupStatusReport == 1 &&
+                !string.IsNullOrEmpty(result.StatusReportPath) && File.Exists(result.StatusReportPath))
+            {
+                using (var report = new StatusReportForm()) report.Display(result.StatusReportPath);
+            }
+            else
+            {
+                var msg = "Groups processed: " + result.GroupsProcessed + "\nFailed: " + result.GroupsFailed;
+                if (result.Errors.Count > 0) msg += "\n\nErrors:\n" + string.Join("\n", result.Errors.ToArray());
+                MessageBox.Show(msg, "Process Card Groups",
+                    MessageBoxButtons.OK, result.GroupsFailed > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+            }
         }
 
         private void OnUndo(object sender, EventArgs e)
         {
-            MessageBox.Show("Undo Group is not yet implemented in this build.", "Undo Group",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            TreeNode node = tvwGroups.SelectedNode;
+            if (node == null)
+            {
+                MessageBox.Show("Select a card group to undo.", "Undo Group",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            TreeNode groupNode = node.Parent ?? node;   // if a card is selected, undo its whole group
+            string groupName = groupNode.Text;
+            if (MessageBox.Show("Undo group '" + groupName + "'?\nIts cards return to the queue.",
+                    "Undo Group", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                return;
+
+            GroupingResult result = _grouping.UndoGroup(_defaults.GroupsToProcessFolder + groupName + "\\");
+            if (!result.Success)
+            {
+                MessageBox.Show(result.ErrorMessage, "Undo Group", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Regenerate the queue thumbnails for the restored cards so they reappear in the strip.
+            foreach (string bmp in result.RemovedSourcePaths)
+            {
+                try { BmpCodec.WriteJpegThumbnail(bmp, Path.ChangeExtension(bmp, ".JPG"), 200); }
+                catch (Exception ex) { _log.Write("Undo thumbnail regen failed for " + bmp + ": " + ex.Message); }
+            }
+
+            LoadQueue();
+            LoadGroupsTree();
         }
 
         // ---- scan -----------------------------------------------------------------------

@@ -56,20 +56,25 @@ namespace DWPCardScanNet.Core.Processing
                 return result;
             }
 
+            result.StatusReportPath = CreateStatusReport(request.Defaults);
+
             foreach (string folder in Directory.GetDirectories(root))
             {
+                string name = Path.GetFileName(folder);
                 try
                 {
                     string packetPath = ProcessGroup(folder, request);
                     result.GroupsProcessed++;
                     result.WrittenPackets.Add(packetPath);
+                    AppendStatusReport(result.StatusReportPath, name + ": processed successfully.");
                 }
                 catch (Exception ex)
                 {
                     result.GroupsFailed++;
-                    string msg = "Group '" + Path.GetFileName(folder) + "' failed: " + ex.Message;
+                    string msg = "Group '" + name + "' failed: " + ex.Message;
                     result.Errors.Add(msg);
                     _log.Write(msg);
+                    AppendStatusReport(result.StatusReportPath, name + ": FAILED - " + ex.Message);
                 }
             }
 
@@ -339,5 +344,28 @@ namespace DWPCardScanNet.Core.Processing
 
         /// <summary>Formats a date as CCYYMMDD (port of VB6 GetDate).</summary>
         private static string GetDate(DateTime date) => date.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+
+        /// <summary>Creates a timestamped group status report file (port of CreateGroupReportFile). Null if no folder configured.</summary>
+        private string CreateStatusReport(Defaults defaults)
+        {
+            string folder = defaults.GroupStatusReportFolder;
+            if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder)) return null;
+            try
+            {
+                string path = folder + "DWPCardScan_GroupReport_" +
+                              DateTime.Now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture) + ".txt";
+                AppendStatusReport(path, "DWPCardScan Group Status Report.");
+                return path;
+            }
+            catch (Exception ex) { _log.Write("Could not create status report: " + ex.Message); return null; }
+        }
+
+        /// <summary>Appends a timestamped line to the status report (port of WriteToStatusReport). Never throws.</summary>
+        private void AppendStatusReport(string reportPath, string message)
+        {
+            if (string.IsNullOrEmpty(reportPath)) return;
+            try { File.AppendAllText(reportPath, DateTime.Now + ": " + message + Environment.NewLine); }
+            catch (Exception ex) { _log.Write("Status report write failed: " + ex.Message); }
+        }
     }
 }

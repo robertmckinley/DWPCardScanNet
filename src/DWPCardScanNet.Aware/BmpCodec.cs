@@ -8,11 +8,25 @@ namespace DWPCardScanNet.Aware
 {
     /// <summary>
     /// GDI+ helpers for the image plumbing that the VB6 did with LEADTOOLS: decoding an Aware
-    /// crop-region BMP to raw 8-bpp grayscale pixels, and rotating a whole-card BMP file
-    /// (the RotateBMP replacement). No LEADTOOLS.
+    /// crop-region BMP to raw 8-bpp grayscale pixels, rotating a whole-card BMP file
+    /// (the RotateBMP replacement), and writing JPEG thumbnails. No LEADTOOLS.
     /// </summary>
-    internal static class BmpCodec
+    public static class BmpCodec
     {
+        /// <summary>Writes a JPEG thumbnail of <paramref name="sourceImagePath"/> (preserving aspect) at the given height.</summary>
+        public static void WriteJpegThumbnail(string sourceImagePath, string jpgPath, int thumbHeightPx)
+        {
+            byte[] bytes = File.ReadAllBytes(sourceImagePath); // read so the source stays unlocked
+            using (var ms = new MemoryStream(bytes))
+            using (var full = Image.FromStream(ms))
+            {
+                double aspect = (double)full.Height / full.Width;
+                int w = Math.Max(1, (int)Math.Round(thumbHeightPx / aspect));
+                using (var thumb = full.GetThumbnailImage(w, thumbHeightPx, null, IntPtr.Zero))
+                    thumb.Save(jpgPath, ImageFormat.Jpeg);
+            }
+        }
+
         /// <summary>
         /// Decodes BMP bytes to a tightly-packed (no row padding) top-down 8-bpp grayscale
         /// buffer. 8-bpp indexed grayscale (what Aware returns for a card) is copied directly;
