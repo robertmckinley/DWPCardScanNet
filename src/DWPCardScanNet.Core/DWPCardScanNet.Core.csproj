@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Core library: pure data model + INI configuration layer ported from the
+    VB6 DWPCardScan (clsDefaults / clsCardDef / clsGroupDef / clsCropRegion / clsConfig).
+    No WinForms, no COM, no LEADTOOLS - deliberately kept UI/interop free so it is
+    unit-testable and safe to build on. AnyCPU is fine here; only the exe needs x86.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>DWPCardScanNet.Core</RootNamespace>
+    <AssemblyName>DWPCardScanNet.Core</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    WinForms executable, .NET Framework 4.8, x86.
+    x86 is mandatory for the target: the biometric pipeline will interop with the
+    32-bit Aware AccuScan COM controls in a later increment. (LEADTOOLS is NOT
+    referenced - this port uses GDI+/System.Drawing instead.)
+    For now this is a foundation shell that only loads and displays the configuration.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>DWPCardScanNet</RootNamespace>
+    <AssemblyName>DWPCardScanNet</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Platforms>x86</Platforms>
+    <PlatformTarget>x86</PlatformTarget>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DWPCardScanNet.Core\DWPCardScanNet.Core.csproj" />
+    <ProjectReference Include="..\DWPCardScanNet.Aware\DWPCardScanNet.Aware.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Copy of a real site .ini, used so the shell has something to load at runtime.
+         This is a fixture only; it does not touch the original VB6 project. -->
+    <None Update="DWPCardScan.ini">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Validation harness (console, net48, x86). Builds a card group from the real test BMPs,
+    runs the managed GroupProcessor, then re-reads and verifies the produced NIST packet.
+    x86 because it loads the x86 Aware assemblies. Run with the Aware redist folders on PATH.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>DWPCardScanNet.PipelineHarness</RootNamespace>
+    <AssemblyName>DWPCardScanNet.PipelineHarness</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Platforms>x86</Platforms>
+    <PlatformTarget>x86</PlatformTarget>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DWPCardScanNet.Core\DWPCardScanNet.Core.csproj" />
+    <ProjectReference Include="..\..\src\DWPCardScanNet.Aware\DWPCardScanNet.Aware.csproj" />
+  </ItemGroup>
+
+</Project>

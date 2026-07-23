@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Aware integration layer. This is the ONLY project that references the vendor Aware
+    assemblies, isolating that dependency from Core and the UI. Fully MANAGED - no COM,
+    no tlbimp, no regsvr32. References the .NET assemblies Aware ships:
+      Aware.AccuScan.dll   (scanning)                     - AccuScan\redist
+      Aware.NistPack.dll   (NIST transaction building)    - NISTPack\redist
+      Aware.AwWsq1000.dll  (WSQ compression)              - NISTPack\redist
+    All three are x86, so this project (and anything that loads it) must run 32-bit.
+
+    The Aware install location is overridable via the AwareAccuScanDir / AwareNistPackDir
+    MSBuild properties (pass /p:AwareNistPackDir=... on a machine with a non-default install).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>DWPCardScanNet.Aware</RootNamespace>
+    <AssemblyName>DWPCardScanNet.Aware</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Platforms>x86</Platforms>
+    <PlatformTarget>x86</PlatformTarget>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AwareAccuScanDir Condition="'$(AwareAccuScanDir)' == ''">C:\Program Files (x86)\Aware\AccuScan\redist</AwareAccuScanDir>
+    <AwareNistPackDir Condition="'$(AwareNistPackDir)' == ''">C:\Program Files (x86)\Aware\NISTPack\redist</AwareNistPackDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DWPCardScanNet.Core\DWPCardScanNet.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Drawing" />
+    <Reference Include="Aware.AccuScan">
+      <HintPath>$(AwareAccuScanDir)\Aware.AccuScan.dll</HintPath>
+    </Reference>
+    <Reference Include="Aware.NistPack">
+      <HintPath>$(AwareNistPackDir)\Aware.NistPack.dll</HintPath>
+    </Reference>
+    <Reference Include="Aware.AwWsq1000">
+      <HintPath>$(AwareNistPackDir)\Aware.AwWsq1000.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
