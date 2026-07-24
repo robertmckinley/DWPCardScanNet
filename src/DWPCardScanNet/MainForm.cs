@@ -23,7 +23,6 @@ namespace DWPCardScanNet
     public partial class MainForm : Form
     {
         private const string MugConfigIni = @"C:\MugConfig\DWPCardScan\DWPCardScan.ini";
-        private const string DriveRemapTo = @"C:\MugConfig\DWPCardScan\"; // test box had no D:
 
         private ILog _log = NullLog.Instance;
         private Defaults _defaults;
@@ -142,11 +141,7 @@ namespace DWPCardScanNet
                     _cards[c.CardName] = c;
                 }
                 foreach (GroupDefinition g in reader.LoadGroupDefinitions())
-                {
-                    g.NISTOutDir = Remap(g.NISTOutDir);
                     _groups[g.GroupName] = g;
-                }
-                _defaults.GroupPDFFolder = Remap(_defaults.GroupPDFFolder);
 
                 _grouping = new GroupingService(_defaults, _cards, _log);
 
@@ -155,6 +150,12 @@ namespace DWPCardScanNet
                 ApplyBanner();
                 WarnIfFolderMissing(_defaults.ToProcessQueue, "ToProcessQueue");
                 WarnIfFolderMissing(_defaults.GroupsToProcessFolder, "GroupsToProcessFolder");
+                // Output folders are honoured exactly as written in the .ini (no drive remapping).
+                // Warn up front if a NIST output folder is missing so packets don't fail at process time.
+                foreach (GroupDefinition g in _groups.Values)
+                    WarnIfFolderMissing(g.NISTOutDir, "NISTOutDir (group '" + g.GroupName + "')");
+                if (_defaults.SaveGroupPDF == "Y")
+                    WarnIfFolderMissing(_defaults.GroupPDFFolder, "GroupPDFFolder");
 
                 _suppressCardTypeEvent = true;
                 foreach (CardDefinition c in _cardList) cmbCardType.Items.Add(c.CardName);
@@ -529,13 +530,6 @@ namespace DWPCardScanNet
             if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
                 MessageBox.Show(label + " folder does not exist:\n" + path, "DWP Card Scan",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        }
-
-        private static string Remap(string path)
-        {
-            if (string.IsNullOrEmpty(path)) return path;
-            return path.StartsWith(@"D:\", StringComparison.OrdinalIgnoreCase)
-                ? DriveRemapTo + path.Substring(3) : path;
         }
 
         private static float ParseF(string s)

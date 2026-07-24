@@ -65,13 +65,13 @@ The DLL implements `DWPCardScanNet.Core.Processing.IPostProcessor`. See
 ## Configuration assumptions (current build)
 
 - Config is loaded from `C:\MugConfig\DWPCardScan\DWPCardScan.ini` (fallback: the
-  copy beside the exe).
-- Paths beginning `D:\` in the .ini (e.g. `NISTOutDir`, PDF folder) are remapped to
-  `C:\MugConfig\DWPCardScan\` - a convenience for the current test box. Sites that use
-  real `D:\` paths should have those drives present, or this remap can be removed.
-
-These assumptions live in `MainForm` (`MugConfigIni`, `DriveRemapTo`); make them
-configurable before a wider rollout if sites differ.
+  copy beside the exe). This location is `MugConfigIni` in `MainForm`.
+- **All paths in the .ini are honoured exactly as written** - there is no drive
+  remapping. Every folder the app reads or writes (`NISTOutDir`, `GroupPDFFolder`,
+  `LogFileDir`, `ToProcessQueue`, `GroupsToProcessFolder`, `GroupStatusReportFolder`)
+  must exist and be writable on the target machine, at the drive/path configured.
+  At startup the app errors if `LogFileDir` is missing and warns if an output folder
+  (`NISTOutDir`, `GroupPDFFolder`) is missing, so misconfiguration surfaces immediately.
 
 ## Uninstall
 
