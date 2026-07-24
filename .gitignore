@@ -21,3 +21,6 @@ packages/
 [Tt]est[Rr]esults/
 *.coverage
 *.trx
+
+# Deployment staging
+deploy/dist/
