@@ -48,9 +48,9 @@ namespace DWPCardScanNet
             btnUndo.Click += OnUndo;
             btnScanCards.Click += OnScan;
             tsbDelete.Click += OnDeleteCard;
-            tsbPan.Click += OnToolNotImplemented;
-            tsbZoom.Click += OnToolNotImplemented;
-            tsbRotate.Click += OnToolNotImplemented;
+            tsbPan.Click += (s, e) => TogglePreviewMode(CardPreviewControl.InteractionMode.Pan);
+            tsbZoom.Click += (s, e) => TogglePreviewMode(CardPreviewControl.InteractionMode.Zoom);
+            tsbRotate.Click += (s, e) => cardPreview.RotateView();
             tvwGroups.DoubleClick += OnGroupDoubleClick;
 
             // Keep the Card Type combo centered over the card image.
@@ -92,10 +92,13 @@ namespace DWPCardScanNet
             LoadQueue();
         }
 
-        private void OnToolNotImplemented(object sender, EventArgs e)
+        /// <summary>Toggles the preview between Edit-crops and the given tool mode; Pan/Zoom are mutually exclusive.</summary>
+        private void TogglePreviewMode(CardPreviewControl.InteractionMode mode)
         {
-            MessageBox.Show("This tool is not yet implemented in this build.", "DWP Card Scan",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            bool turnOn = cardPreview.Mode != mode;
+            cardPreview.Mode = turnOn ? mode : CardPreviewControl.InteractionMode.EditCrops;
+            tsbPan.Checked = cardPreview.Mode == CardPreviewControl.InteractionMode.Pan;
+            tsbZoom.Checked = cardPreview.Mode == CardPreviewControl.InteractionMode.Zoom;
         }
 
         private void MainForm_Load(object sender, EventArgs e)

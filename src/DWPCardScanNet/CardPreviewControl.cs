@@ -9,40 +9,63 @@ using DWPCardScanNet.Core.Configuration;
 namespace DWPCardScanNet
 {
     /// <summary>
-    /// Displays a scanned card scaled to fit, with the selected card type's crop regions drawn as
-    /// overlays that the operator can DRAG to reposition (move-only, fixed size - matching the VB6
-    /// CardScanManualAx behaviour). GDI+ replacement for the VB6 LEAD display / CardScanManualAx.
-    /// The adjusted regions are read back via <see cref="GetAdjustedRegions"/> and written to a .crp.
+    /// Displays a scanned card with the selected card type's crop regions overlaid in red. The
+    /// operator can drag the crop regions (Edit mode), pan, zoom (mouse wheel or Zoom tool), and
+    /// rotate the view. A single GDI+ transform (pan * rotate * zoom) is applied to both the image
+    /// and the overlays, and inverted for hit-testing, so crop editing works in any view state.
+    /// GDI+ replacement for the VB6 LEAD display / CardScanManualAx.
     /// </summary>
     public sealed class CardPreviewControl : Panel
     {
-        private Image _display;                 // scaled-down copy for display
+        public enum InteractionMode { EditCrops, Pan, Zoom }
+
+        private Image _display;
         private float _cardWidthInches = 8f;
         private float _cardHeightInches = 8f;
-        private readonly List<CropRegion> _regions = new List<CropRegion>(); // editable clones
-        private const int MaxDisplayDim = 1000;
+        private readonly List<CropRegion> _regions = new List<CropRegion>();
+        private const int MaxDisplayDim = 1200;
 
-        private int _dragIndex = -1;
-        private PointF _grabOffsetInches;        // mouse-inches minus region top-left, kept while dragging
+        // View transform state.
+        private float _zoom = 1f;
+        private float _panX, _panY;
+        private int _rotation;                  // 0 / 90 / 180 / 270
+
+        // Interaction state.
+        private InteractionMode _mode = InteractionMode.EditCrops;
+        private int _dragIndex = -1;            // crop being dragged (Edit mode)
+        private PointF _grabOffsetInches;
+        private bool _panning;
+        private Point _panStart;
 
         public CardPreviewControl()
         {
             DoubleBuffered = true;
             BackColor = Color.FromArgb(40, 40, 40);
+            SetStyle(ControlStyles.Selectable, true);
+            TabStop = true;
         }
 
-        /// <summary>Loads a card BMP (without locking the file) and clones the crop regions for editing.</summary>
+        public InteractionMode Mode
+        {
+            get { return _mode; }
+            set { _mode = value; UpdateCursor(); }
+        }
+
+        public void RotateView() { _rotation = (_rotation + 90) % 360; Invalidate(); }
+        public void ResetView() { _zoom = 1f; _panX = 0; _panY = 0; _rotation = 0; Invalidate(); }
+
         public void SetCard(string bmpPath, float cardWidthInches, float cardHeightInches, IEnumerable<CropRegion> regions)
         {
             DisposeImage();
             _regions.Clear();
             _dragIndex = -1;
+            ResetView();
             _cardWidthInches = cardWidthInches > 0 ? cardWidthInches : 8f;
             _cardHeightInches = cardHeightInches > 0 ? cardHeightInches : 8f;
 
             if (!string.IsNullOrEmpty(bmpPath) && File.Exists(bmpPath))
             {
-                byte[] bytes = File.ReadAllBytes(bmpPath); // read so the file stays unlocked (may be moved later)
+                byte[] bytes = File.ReadAllBytes(bmpPath);   // read so the file stays unlocked
                 using (var ms = new MemoryStream(bytes))
                 using (var full = new Bitmap(ms))
                 {
@@ -70,20 +93,16 @@ namespace DWPCardScanNet
             DisposeImage();
             _regions.Clear();
             _dragIndex = -1;
+            ResetView();
             Invalidate();
         }
 
-        /// <summary>The current crop regions, with any operator move adjustments applied.</summary>
         public IReadOnlyList<CropRegion> GetAdjustedRegions() => _regions;
 
-        /// <summary>
-        /// X coordinate (in <paramref name="target"/>'s client space) of the horizontal center of the
-        /// drawn card image. Lets callers align controls (e.g. the Card Type combo) over the card.
-        /// </summary>
+        /// <summary>Screen X (in <paramref name="target"/>'s client space) of the card's home center (ignores zoom/pan).</summary>
         public int GetImageCenterX(Control target)
         {
-            RectangleF r = ImageRect();
-            Point screenPt = PointToScreen(new Point((int)Math.Round(r.X + r.Width / 2f), 0));
+            Point screenPt = PointToScreen(new Point(ClientSize.Width / 2, 0));
             return target.PointToClient(screenPt).X;
         }
 
@@ -99,39 +118,58 @@ namespace DWPCardScanNet
                 return;
             }
 
-            RectangleF dest = ImageRect();
-            e.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            e.Graphics.DrawImage(_display, dest);
-
-            using (var pen = new Pen(Color.Red, 1.5f))
-            using (var activePen = new Pen(Color.Cyan, 2f))
-            using (var brush = new SolidBrush(Color.Red))
+            BaseFitSize(out float baseW, out float baseH);
+            using (Matrix m = BuildTransform())
             {
-                for (int i = 0; i < _regions.Count; i++)
+                e.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                e.Graphics.Transform = m;
+                e.Graphics.DrawImage(_display, -baseW / 2f, -baseH / 2f, baseW, baseH);
+
+                float penW = 1.6f / _zoom;   // keep the outline ~constant on screen
+                using (var pen = new Pen(Color.Red, penW))
+                using (var activePen = new Pen(Color.Cyan, penW * 1.4f))
+                using (var brush = new SolidBrush(Color.Red))
+                using (var font = new Font(Font.FontFamily, Math.Max(6f, 9f / _zoom)))
                 {
-                    RectangleF rc = RegionRect(_regions[i], dest);
-                    e.Graphics.DrawRectangle(i == _dragIndex ? activePen : pen, rc.X, rc.Y, rc.Width, rc.Height);
-                    e.Graphics.DrawString(_regions[i].FingerIndex.ToString(), Font, brush, rc.X + 1, rc.Y + 1);
+                    for (int i = 0; i < _regions.Count; i++)
+                    {
+                        RectangleF rc = CropLocalRect(_regions[i], baseW, baseH);
+                        e.Graphics.DrawRectangle(i == _dragIndex ? activePen : pen, rc.X, rc.Y, rc.Width, rc.Height);
+                        e.Graphics.DrawString(_regions[i].FingerIndex.ToString(), font, brush, rc.X + 1, rc.Y + 1);
+                    }
                 }
+                e.Graphics.ResetTransform();
             }
         }
 
-        // ---- dragging -------------------------------------------------------------------
+        // ---- mouse ----------------------------------------------------------------------
 
         protected override void OnMouseDown(MouseEventArgs e)
         {
             base.OnMouseDown(e);
-            if (e.Button != MouseButtons.Left || _display == null) return;
+            Focus();   // so the mouse wheel zooms this control
+            if (_display == null) return;
 
-            RectangleF dest = ImageRect();
-            // Topmost region under the cursor (search back-to-front so the last-drawn wins).
+            if (_mode == InteractionMode.Zoom)
+            {
+                ZoomAt(e.Location, e.Button == MouseButtons.Right ? 1f / 1.25f : 1.25f);
+                return;
+            }
+            if (_mode == InteractionMode.Pan)
+            {
+                if (e.Button == MouseButtons.Left) { _panning = true; _panStart = e.Location; }
+                return;
+            }
+
+            // Edit mode: pick the topmost crop region under the cursor.
+            if (e.Button != MouseButtons.Left) return;
+            PointF inch = PointToInches(e.Location);
             for (int i = _regions.Count - 1; i >= 0; i--)
             {
-                if (RegionRect(_regions[i], dest).Contains(e.Location))
+                if (InchInRegion(_regions[i], inch))
                 {
                     _dragIndex = i;
-                    PointF m = PointToInches(e.Location, dest);
-                    _grabOffsetInches = new PointF(m.X - _regions[i].Left, m.Y - _regions[i].Top);
+                    _grabOffsetInches = new PointF(inch.X - _regions[i].Left, inch.Y - _regions[i].Top);
                     Invalidate();
                     return;
                 }
@@ -142,29 +180,54 @@ namespace DWPCardScanNet
         {
             base.OnMouseMove(e);
             if (_display == null) return;
-            RectangleF dest = ImageRect();
 
-            if (_dragIndex >= 0)
+            if (_panning)
             {
-                PointF m = PointToInches(e.Location, dest);
-                CropRegion r = _regions[_dragIndex];
-                r.Left = Clamp(m.X - _grabOffsetInches.X, 0f, _cardWidthInches - r.Width);
-                r.Top = Clamp(m.Y - _grabOffsetInches.Y, 0f, _cardHeightInches - r.Height);
+                _panX += e.X - _panStart.X;
+                _panY += e.Y - _panStart.Y;
+                _panStart = e.Location;
                 Invalidate();
                 return;
             }
 
-            // Hover feedback.
-            Cursor hover = Cursors.Default;
-            for (int i = _regions.Count - 1; i >= 0; i--)
-                if (RegionRect(_regions[i], dest).Contains(e.Location)) { hover = Cursors.SizeAll; break; }
-            Cursor = hover;
+            if (_dragIndex >= 0)
+            {
+                PointF inch = PointToInches(e.Location);
+                CropRegion r = _regions[_dragIndex];
+                r.Left = Clamp(inch.X - _grabOffsetInches.X, 0f, _cardWidthInches - r.Width);
+                r.Top = Clamp(inch.Y - _grabOffsetInches.Y, 0f, _cardHeightInches - r.Height);
+                Invalidate();
+                return;
+            }
+
+            if (_mode == InteractionMode.EditCrops)
+            {
+                PointF inch = PointToInches(e.Location);
+                bool over = false;
+                for (int i = _regions.Count - 1; i >= 0; i--)
+                    if (InchInRegion(_regions[i], inch)) { over = true; break; }
+                Cursor = over ? Cursors.SizeAll : Cursors.Default;
+            }
         }
 
         protected override void OnMouseUp(MouseEventArgs e)
         {
             base.OnMouseUp(e);
+            _panning = false;
             if (_dragIndex >= 0) { _dragIndex = -1; Invalidate(); }
+        }
+
+        protected override void OnMouseWheel(MouseEventArgs e)
+        {
+            base.OnMouseWheel(e);
+            if (_display == null) return;
+            ZoomAt(e.Location, e.Delta > 0 ? 1.15f : 1f / 1.15f);
+        }
+
+        protected override void OnMouseDoubleClick(MouseEventArgs e)
+        {
+            base.OnMouseDoubleClick(e);
+            ResetView();   // double-click resets zoom/pan/rotation to fit
         }
 
         protected override void OnResize(EventArgs eventargs)
@@ -173,34 +236,95 @@ namespace DWPCardScanNet
             Invalidate();
         }
 
-        // ---- coordinate mapping ---------------------------------------------------------
+        // ---- transform / coordinate mapping ---------------------------------------------
 
-        /// <summary>The fitted destination rectangle of the card image within the control.</summary>
-        private RectangleF ImageRect()
+        private void BaseFitSize(out float w, out float h)
         {
-            if (_display == null) return ClientRectangle;
-            int iw = _display.Width, ih = _display.Height;
-            Rectangle b = ClientRectangle;
-            if (iw <= 0 || ih <= 0 || b.Width <= 0 || b.Height <= 0) return b;
-            float scale = Math.Min((float)b.Width / iw, (float)b.Height / ih);
-            float w = iw * scale, h = ih * scale;
-            return new RectangleF(b.X + (b.Width - w) / 2f, b.Y + (b.Height - h) / 2f, w, h);
+            w = 0; h = 0;
+            if (_display == null || ClientSize.Width <= 0 || ClientSize.Height <= 0) return;
+            float sc = Math.Min((float)ClientSize.Width / _display.Width, (float)ClientSize.Height / _display.Height);
+            w = _display.Width * sc;
+            h = _display.Height * sc;
         }
 
-        private RectangleF RegionRect(CropRegion r, RectangleF dest)
+        /// <summary>Card-model (image local, origin at image center) -> control pixels.</summary>
+        private Matrix BuildTransform()
         {
-            float x = dest.X + (r.Left / _cardWidthInches) * dest.Width;
-            float y = dest.Y + (r.Top / _cardHeightInches) * dest.Height;
-            float w = (r.Width / _cardWidthInches) * dest.Width;
-            float h = (r.Height / _cardHeightInches) * dest.Height;
+            var m = new Matrix();
+            m.Translate(ClientSize.Width / 2f + _panX, ClientSize.Height / 2f + _panY);
+            m.Rotate(_rotation);
+            m.Scale(_zoom, _zoom);
+            return m;
+        }
+
+        private RectangleF CropLocalRect(CropRegion r, float baseW, float baseH)
+        {
+            float x = -baseW / 2f + (r.Left / _cardWidthInches) * baseW;
+            float y = -baseH / 2f + (r.Top / _cardHeightInches) * baseH;
+            float w = (r.Width / _cardWidthInches) * baseW;
+            float h = (r.Height / _cardHeightInches) * baseH;
             return new RectangleF(x, y, w, h);
         }
 
-        private PointF PointToInches(Point p, RectangleF dest)
+        private PointF PointToInches(Point screen)
         {
-            float x = dest.Width > 0 ? (p.X - dest.X) / dest.Width * _cardWidthInches : 0f;
-            float y = dest.Height > 0 ? (p.Y - dest.Y) / dest.Height * _cardHeightInches : 0f;
-            return new PointF(x, y);
+            BaseFitSize(out float baseW, out float baseH);
+            if (baseW <= 0 || baseH <= 0) return PointF.Empty;
+            using (Matrix m = BuildTransform())
+            {
+                m.Invert();
+                var pts = new[] { new PointF(screen.X, screen.Y) };
+                m.TransformPoints(pts);
+                float left = (pts[0].X + baseW / 2f) / baseW * _cardWidthInches;
+                float top = (pts[0].Y + baseH / 2f) / baseH * _cardHeightInches;
+                return new PointF(left, top);
+            }
+        }
+
+        private void ZoomAt(Point cursor, float factor)
+        {
+            PointF localBefore = ToLocal(cursor);
+            float newZoom = Clamp(_zoom * factor, 1f, 12f);
+            if (Math.Abs(newZoom - _zoom) < 0.0001f) return;
+            _zoom = newZoom;
+            PointF screenAfter = FromLocal(localBefore);   // where the same point maps now
+            _panX += cursor.X - screenAfter.X;             // shift so it stays under the cursor
+            _panY += cursor.Y - screenAfter.Y;
+            Invalidate();
+        }
+
+        private PointF ToLocal(Point screen)
+        {
+            using (Matrix m = BuildTransform())
+            {
+                m.Invert();
+                var p = new[] { new PointF(screen.X, screen.Y) };
+                m.TransformPoints(p);
+                return p[0];
+            }
+        }
+
+        private PointF FromLocal(PointF local)
+        {
+            using (Matrix m = BuildTransform())
+            {
+                var p = new[] { local };
+                m.TransformPoints(p);
+                return p[0];
+            }
+        }
+
+        private bool InchInRegion(CropRegion r, PointF inch) =>
+            inch.X >= r.Left && inch.X <= r.Left + r.Width && inch.Y >= r.Top && inch.Y <= r.Top + r.Height;
+
+        private void UpdateCursor()
+        {
+            switch (_mode)
+            {
+                case InteractionMode.Pan: Cursor = Cursors.Hand; break;
+                case InteractionMode.Zoom: Cursor = Cursors.Cross; break;
+                default: Cursor = Cursors.Default; break;
+            }
         }
 
         private static float Clamp(float v, float min, float max)
