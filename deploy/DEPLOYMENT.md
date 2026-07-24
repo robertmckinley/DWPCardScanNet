@@ -40,6 +40,8 @@ install.cmd "C:\Apps\DWPCardScanNet"
    (`accuscan.dll`, `nistpack.dll`, `wsq1000.dll`); the app adds the Aware
    `NISTPack\redist` and `AccuScan\redist` folders to its DLL search path at startup.
    The app is **x86** and must run 32-bit (the Aware assemblies are x86).
+   **Requires Aware AccuScan version 4.2.1** — the test machine threw errors until
+   this version was installed; earlier versions are not supported.
 3. **Site configuration** at `C:\MugConfig\DWPCardScan\DWPCardScan.ini`
    (card/group definitions, folders, banner, etc.). The app reads this when present,
    otherwise falls back to the `DWPCardScan.ini` shipped next to the exe.

@@ -31,6 +31,10 @@ namespace DWPCardScanNet
         /// The managed Aware assemblies load native DLLs (accuscan/nistpack/wsq). accuscan is in
         /// SysWOW64 but the NISTPack natives are only under the Aware install, so add those folders
         /// to the process DLL search path. Silently ignored if the Aware install isn't present.
+        /// <para>
+        /// Requires Aware AccuScan version 4.2.1. The test machine threw errors until 4.2.1 was
+        /// installed; earlier versions are not supported.
+        /// </para>
         /// </summary>
         private static void EnsureAwareNativeDllsResolvable()
         {
