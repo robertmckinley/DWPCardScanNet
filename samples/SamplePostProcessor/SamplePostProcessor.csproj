@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Reference DWPCardScanNet post-process plugin. Standalone example - deliberately NOT part of
+    DWPCardScanNet.sln, so the main build does not depend on it. Build it on its own:
+        dotnet build samples\SamplePostProcessor\SamplePostProcessor.csproj -c Release
+    then point a group's PostProcessDLL at the produced SamplePostProcessor.dll.
+
+    Targets the same framework/architecture as the host (net48, x86) so the host can load it in-process.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>SamplePostProcessor</RootNamespace>
+    <AssemblyName>SamplePostProcessor</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Platforms>x86</Platforms>
+    <PlatformTarget>x86</PlatformTarget>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- A customer can instead reference the shipped DWPCardScanNet.Core.dll:
+         <Reference Include="DWPCardScanNet.Core"><HintPath>..\..\DWPCardScanNet.Core.dll</HintPath></Reference> -->
+    <ProjectReference Include="..\..\src\DWPCardScanNet.Core\DWPCardScanNet.Core.csproj" />
+  </ItemGroup>
+
+</Project>

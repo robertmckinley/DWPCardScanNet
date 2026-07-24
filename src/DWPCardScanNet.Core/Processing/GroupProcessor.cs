@@ -21,9 +21,10 @@ namespace DWPCardScanNet.Core.Processing
     /// (1) One bad group is logged and skipped; the run continues (VB6 aborted the whole run).
     /// (2) T4_VLL/T4_HLL are set to the real pixel dimensions - the VB6 left them empty because
     ///     its Height/Width locals were never assigned (a latent bug); Type-15 already used real dims.
-    /// (3) The PostProcessDLL hook is NOT yet ported - it is logged and skipped (a separate COM concern).
-    ///     PDF output (VB6 MUGPDF) IS ported when an <see cref="IPdfWriter"/> is supplied; if none is
+    /// (3) PDF output (VB6 MUGPDF) IS ported when an <see cref="IPdfWriter"/> is supplied; if none is
     ///     supplied the PDF tag is still written but the file is skipped (logged).
+    /// (4) The PostProcessDLL hook IS ported (managed, no COM) when an <see cref="IPostProcessorLoader"/>
+    ///     is supplied; if none is supplied a configured hook is logged and skipped.
     /// </para>
     /// </summary>
     public sealed class GroupProcessor : IGroupProcessor
@@ -32,18 +33,21 @@ namespace DWPCardScanNet.Core.Processing
         private readonly ICardImageExtractorFactory _extractorFactory;
         private readonly IWsqCompressor _wsq;
         private readonly IPdfWriter _pdfWriter;
+        private readonly IPostProcessorLoader _postProcessorLoader;
         private readonly ILog _log;
 
         public GroupProcessor(INistTransactionFactory transactionFactory,
                               ICardImageExtractorFactory extractorFactory,
                               IWsqCompressor wsq,
                               IPdfWriter pdfWriter = null,
+                              IPostProcessorLoader postProcessorLoader = null,
                               ILog log = null)
         {
             _transactionFactory = transactionFactory ?? throw new ArgumentNullException(nameof(transactionFactory));
             _extractorFactory = extractorFactory ?? throw new ArgumentNullException(nameof(extractorFactory));
             _wsq = wsq ?? throw new ArgumentNullException(nameof(wsq));
             _pdfWriter = pdfWriter; // optional: null => PDF file creation skipped
+            _postProcessorLoader = postProcessorLoader; // optional: null => PostProcessDLL skipped
             _log = log ?? NullLog.Instance;
         }
 
@@ -67,7 +71,7 @@ namespace DWPCardScanNet.Core.Processing
                 string name = Path.GetFileName(folder);
                 try
                 {
-                    string packetPath = ProcessGroup(folder, request);
+                    string packetPath = ProcessGroup(folder, request, result.StatusReportPath);
                     result.GroupsProcessed++;
                     result.WrittenPackets.Add(packetPath);
                     AppendStatusReport(result.StatusReportPath, name + ": processed successfully.");
@@ -85,7 +89,7 @@ namespace DWPCardScanNet.Core.Processing
             return result;
         }
 
-        private string ProcessGroup(string folder, GroupProcessRequest request)
+        private string ProcessGroup(string folder, GroupProcessRequest request, string statusReportPath)
         {
             string groupName = Path.GetFileName(folder);
             _log.Write("Processing group: " + groupName);
@@ -166,11 +170,12 @@ namespace DWPCardScanNet.Core.Processing
                 if (savePdf)
                     CreateGroupPdf(pdfImagePaths, pdfFilePath);
 
-                if (!string.IsNullOrEmpty(groupDef.PostProcessDLL))
-                    _log.Write("PostProcessDLL '" + groupDef.PostProcessDLL +
-                               "' configured but not yet ported - skipped.");
+                // Run the customer post-process hook (managed; port of the VB6 PostProcessDLL COM call).
+                bool processComplete = RunPostProcessor(groupDef, packetPath, groupName, statusReportPath);
 
-                if (request.DeleteGroupsAfterProcessing)
+                // VB6: with a PostProcessDLL configured, the group is removed only when it reports
+                // ProcessComplete; otherwise it is left in place. Without one, it is always removed.
+                if (request.DeleteGroupsAfterProcessing && processComplete)
                     DeleteFolder(folder);
 
                 return packetPath;
@@ -309,6 +314,46 @@ namespace DWPCardScanNet.Core.Processing
             {
                 _log.Write("Error creating PDF '" + pdfFilePath + "': " + ex.Message);
             }
+        }
+
+        /// <summary>Runs the configured managed post-processor (port of the VB6 PostProcessDLL COM hook).
+        /// Returns whether the group folder may be removed - true when none is configured, or when the
+        /// processor reports ProcessComplete. Throws to fail the group when the processor reports an error.</summary>
+        private bool RunPostProcessor(GroupDefinition groupDef, string packetPath, string keyValue, string statusReportPath)
+        {
+            if (string.IsNullOrEmpty(groupDef.PostProcessDLL))
+                return true;
+
+            if (_postProcessorLoader == null)
+            {
+                _log.Write("PostProcessDLL '" + groupDef.PostProcessDLL +
+                           "' configured but no post-processor loader available - skipped.");
+                return true;
+            }
+
+            _log.Write("Loading PostProcessDLL: " + groupDef.PostProcessDLL);
+            IPostProcessor processor = _postProcessorLoader.Load(groupDef.PostProcessDLL);
+            if (processor == null) return true;
+
+            var ctx = new PostProcessContext
+            {
+                ConfigFileName = groupDef.PostProcessDLLcfg,
+                NistPacketPath = packetPath,
+                KeyValue = keyValue,
+                VerificationFile = groupDef.VerificationFile,
+                StatusReportPath = statusReportPath,
+                TransactionType = groupDef.TOT
+            };
+
+            _log.Write("Calling PostProcess for group: " + keyValue);
+            PostProcessResult ppr = processor.PostProcess(ctx) ?? PostProcessResult.Ok();
+
+            if (!ppr.Success)
+                throw new InvalidOperationException(
+                    "PostProcessDLL '" + groupDef.PostProcessDLL + "' failed: " + (ppr.LastError ?? "(no detail)"));
+
+            _log.Write("PostProcess complete (ProcessComplete=" + ppr.ProcessComplete + ") for group: " + keyValue);
+            return ppr.ProcessComplete;
         }
 
         private static string EnsureTrailingSlash(string path)

@@ -46,6 +46,20 @@ install.cmd "C:\Apps\DWPCardScanNet"
 4. The external scanner app referenced by `ScanShellFilePath` in the .ini
    (e.g. `DWPAwareScanMB.exe`), if the site scans via the external scanner.
 
+## Custom post-process plugins (PostProcessDLL)
+
+Sites can run a custom DLL after each group's packet is written (site-specific export, DB
+insert, notification, cleanup). This is a **managed plugin** - no COM registration. Configure
+per group in the .ini:
+
+```
+PostProcessDLL    = C:\Plugins\MyPostProcessor.dll
+PostProcessDLLcfg = C:\Plugins\MyPostProcessor.cfg
+```
+
+The DLL implements `DWPCardScanNet.Core.Processing.IPostProcessor`. See
+`samples\SamplePostProcessor\README.md` for the contract and a reference implementation.
+
 ## Configuration assumptions (current build)
 
 - Config is loaded from `C:\MugConfig\DWPCardScan\DWPCardScan.ini` (fallback: the

@@ -376,6 +376,7 @@ namespace DWPCardScanNet
                 new AwareCardImageExtractorFactory(),
                 new AwareWsqCompressor(),
                 new PdfSharpWriter(),
+                new AssemblyPostProcessorLoader(),
                 _log);
 
             GroupProcessResult result;
