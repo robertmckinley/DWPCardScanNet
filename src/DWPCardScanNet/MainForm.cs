@@ -118,8 +118,23 @@ namespace DWPCardScanNet
                 var reader = new ConfigReader(iniPath);
                 _defaults = reader.LoadDefaults();
 
-                _log = new FileLog(FileLog.ResolveDefaultPath(_defaults.LogFileDir, AppDomain.CurrentDomain.BaseDirectory));
-                _log.Write("MainForm loading. INI: " + iniPath);
+                // A configured LogFileDir that does not exist means diagnostics would go nowhere
+                // (FileLog swallows the failure), leaving no record of what happened. Fail loudly at
+                // startup instead. A blank LogFileDir is fine - the log then sits next to the exe.
+                if (!string.IsNullOrEmpty(_defaults.LogFileDir) && !Directory.Exists(_defaults.LogFileDir))
+                {
+                    MessageBox.Show(
+                        "The configured log folder does not exist:\n\n" +
+                        _defaults.LogFileDir + "\n\n" +
+                        "Create the folder or correct LogFileDir in the configuration file:\n" + iniPath,
+                        "DWP Card Scan - Log folder missing",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                string logPath = FileLog.ResolveDefaultPath(_defaults.LogFileDir, AppDomain.CurrentDomain.BaseDirectory);
+                _log = new FileLog(logPath);
+                _log.Write("MainForm loading. INI: " + iniPath + " | Log: " + logPath);
 
                 foreach (CardDefinition c in reader.LoadCardDefinitions())
                 {
