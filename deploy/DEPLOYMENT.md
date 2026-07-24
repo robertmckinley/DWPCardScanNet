@@ -15,8 +15,10 @@ deploy\package.cmd
 ```
 
 Produces `deploy\dist\DWPCardScanNet\` containing `DWPCardScanNet.exe`, the
-`DWPCardScanNet.Core` / `DWPCardScanNet.Aware` assemblies, and the managed Aware
-wrappers (`Aware.AccuScan.dll`, `Aware.NistPack.dll`, `Aware.AwWsq1000.dll`).
+`DWPCardScanNet.Core` / `DWPCardScanNet.Aware` assemblies, the managed Aware
+wrappers (`Aware.AccuScan.dll`, `Aware.NistPack.dll`, `Aware.AwWsq1000.dll`), and
+`PdfSharp.dll` (MIT-licensed; the managed replacement for the VB6 MUGPDF component,
+used to archive scanned groups as PDF when `SaveGroupPDF = Y`).
 
 ## Install (target machine)
 

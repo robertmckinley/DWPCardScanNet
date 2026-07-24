@@ -27,6 +27,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- MIT-licensed, no cost. GDI+ build (System.Drawing) for net48. -->
+    <PackageReference Include="PDFsharp" Version="1.50.5147" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Copy of a real site .ini, used so the shell has something to load at runtime.
          This is a fixture only; it does not touch the original VB6 project. -->
     <None Update="DWPCardScan.ini">

@@ -76,6 +76,16 @@ namespace DWPCardScanNet.Core.Processing
         ICardImageExtractor Create();
     }
 
+    /// <summary>
+    /// Writes a multi-page PDF from a set of image files (one page per image). Replaces the VB6
+    /// MUGPDF.clsMUGPDF.CreatePDF(ExtDocs, path, title) call, which archived each scanned card BMP
+    /// as a PDF page. Implementations live outside Core (they carry the PDF-library dependency).
+    /// </summary>
+    public interface IPdfWriter
+    {
+        void CreatePdf(IReadOnlyList<string> imagePaths, string pdfPath, string title);
+    }
+
     /// <summary>Inputs for a group-processing run.</summary>
     public sealed class GroupProcessRequest
     {

@@ -21,8 +21,9 @@ namespace DWPCardScanNet.Core.Processing
     /// (1) One bad group is logged and skipped; the run continues (VB6 aborted the whole run).
     /// (2) T4_VLL/T4_HLL are set to the real pixel dimensions - the VB6 left them empty because
     ///     its Height/Width locals were never assigned (a latent bug); Type-15 already used real dims.
-    /// (3) PDF output (MUGPDF) and the PostProcessDLL hook are NOT yet ported - they are logged and
-    ///     skipped. Both are separate assembly/COM concerns.
+    /// (3) The PostProcessDLL hook is NOT yet ported - it is logged and skipped (a separate COM concern).
+    ///     PDF output (VB6 MUGPDF) IS ported when an <see cref="IPdfWriter"/> is supplied; if none is
+    ///     supplied the PDF tag is still written but the file is skipped (logged).
     /// </para>
     /// </summary>
     public sealed class GroupProcessor : IGroupProcessor
@@ -30,16 +31,19 @@ namespace DWPCardScanNet.Core.Processing
         private readonly INistTransactionFactory _transactionFactory;
         private readonly ICardImageExtractorFactory _extractorFactory;
         private readonly IWsqCompressor _wsq;
+        private readonly IPdfWriter _pdfWriter;
         private readonly ILog _log;
 
         public GroupProcessor(INistTransactionFactory transactionFactory,
                               ICardImageExtractorFactory extractorFactory,
                               IWsqCompressor wsq,
+                              IPdfWriter pdfWriter = null,
                               ILog log = null)
         {
             _transactionFactory = transactionFactory ?? throw new ArgumentNullException(nameof(transactionFactory));
             _extractorFactory = extractorFactory ?? throw new ArgumentNullException(nameof(extractorFactory));
             _wsq = wsq ?? throw new ArgumentNullException(nameof(wsq));
+            _pdfWriter = pdfWriter; // optional: null => PDF file creation skipped
             _log = log ?? NullLog.Instance;
         }
 
@@ -108,15 +112,19 @@ namespace DWPCardScanNet.Core.Processing
                     Directory.GetCreationTime(folder).ToString("M/d/yyyy h:mm:ss tt", CultureInfo.InvariantCulture),
                     type2Index);
 
-                if (request.Defaults.SaveGroupPDF == "Y")
+                // When SaveGroupPDF=Y the VB6 archived each scanned card BMP as a PDF page. We store
+                // the GUID PDF-filename tag in the Type-2 record (as the VB6 did) and collect the card
+                // BMP paths as we process them, then build the PDF after the packet is written.
+                bool savePdf = request.Defaults.SaveGroupPDF == "Y";
+                string pdfFilePath = null;
+                var pdfImagePaths = savePdf ? new List<string>() : null;
+                if (savePdf)
                 {
-                    // Faithful: store the PDF filename tag in the Type-2 record. The actual PDF
-                    // creation (MUGPDF) is a later increment - logged and skipped for now.
                     string pdfFileName = Guid.NewGuid().ToString("B").ToUpperInvariant() + ".PDF";
+                    pdfFilePath = EnsureTrailingSlash(request.Defaults.GroupPDFFolder) + pdfFileName;
                     if (!string.IsNullOrEmpty(request.Defaults.PDFFileNameKeyTag))
                         tx.Set(request.Defaults.PDFFileNameKeyTag, pdfFileName, type2Index);
-                    _log.Write("SaveGroupPDF=Y: set PDF tag " + pdfFileName +
-                               " (PDF creation via MUGPDF not yet ported).");
+                    _log.Write("SaveGroupPDF=Y: PDF tag " + pdfFileName + " -> " + pdfFilePath);
                 }
 
                 var handled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -129,6 +137,7 @@ namespace DWPCardScanNet.Core.Processing
 
                     ParseCard(file, extractor, tx, type2Index, request.Defaults);
                     handled.Add(file);
+                    pdfImagePaths?.Add(file);
 
                     string backFile = Path.Combine(folder,
                         Path.GetFileName(file).Replace("Front", "Back"));
@@ -136,6 +145,7 @@ namespace DWPCardScanNet.Core.Processing
                     {
                         ParseCard(backFile, extractor, tx, type2Index, request.Defaults);
                         handled.Add(backFile);
+                        pdfImagePaths?.Add(backFile);
                     }
                 }
 
@@ -145,11 +155,16 @@ namespace DWPCardScanNet.Core.Processing
                     if (!IsBmp(file) || handled.Contains(file)) continue;
                     ParseCard(file, extractor, tx, type2Index, request.Defaults);
                     handled.Add(file);
+                    pdfImagePaths?.Add(file);
                 }
 
                 string packetPath = BuildPacketPath(groupDef.NISTOutDir, groupName);
                 _log.Write("Writing NIST packet: " + packetPath);
                 tx.Write(packetPath);
+
+                // Build the PDF while the card BMPs still exist (before any folder cleanup).
+                if (savePdf)
+                    CreateGroupPdf(pdfImagePaths, pdfFilePath);
 
                 if (!string.IsNullOrEmpty(groupDef.PostProcessDLL))
                     _log.Write("PostProcessDLL '" + groupDef.PostProcessDLL +
@@ -269,6 +284,38 @@ namespace DWPCardScanNet.Core.Processing
         }
 
         // ---- helpers --------------------------------------------------------------------
+
+        /// <summary>Builds the group PDF from the collected card BMPs (port of the MUGPDF.CreatePDF call).
+        /// If no PDF writer was supplied the tag is still written but the file is skipped. Never aborts
+        /// the group: a PDF failure is logged (the VB6 MsgBox'd; here the packet is already written).</summary>
+        private void CreateGroupPdf(IReadOnlyList<string> imagePaths, string pdfFilePath)
+        {
+            if (_pdfWriter == null)
+            {
+                _log.Write("SaveGroupPDF=Y but no PDF writer configured - PDF file skipped: " + pdfFilePath);
+                return;
+            }
+            if (imagePaths == null || imagePaths.Count == 0)
+            {
+                _log.Write("SaveGroupPDF=Y but no card images to write - PDF skipped: " + pdfFilePath);
+                return;
+            }
+            try
+            {
+                _log.Write("Saving PDF (" + imagePaths.Count + " page(s)): " + pdfFilePath);
+                _pdfWriter.CreatePdf(imagePaths, pdfFilePath, "Scanned Document Group");
+            }
+            catch (Exception ex)
+            {
+                _log.Write("Error creating PDF '" + pdfFilePath + "': " + ex.Message);
+            }
+        }
+
+        private static string EnsureTrailingSlash(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return path;
+            return path.EndsWith("\\") || path.EndsWith("/") ? path : path + "\\";
+        }
 
         private sealed class CropOverride { public float Top; public float Left; }
 
