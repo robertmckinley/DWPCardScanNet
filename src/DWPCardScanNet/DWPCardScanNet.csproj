@@ -36,6 +36,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Crop-toolbar icons, extracted from the legacy CardScanManualAx control so the
+         toolbar matches the VB6 look. Embedded so nothing extra ships with the exe. -->
+    <EmbeddedResource Include="Icons\*.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- A sample/template .ini shipped alongside the exe. It is NOT loaded at runtime -
          the app requires the real DWPCardScan.ini in the application folder. Deploying it as
          *_Sample* keeps a fresh install from silently running on a placeholder config. -->

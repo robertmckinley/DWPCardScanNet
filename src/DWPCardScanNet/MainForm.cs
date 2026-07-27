@@ -51,9 +51,41 @@ namespace DWPCardScanNet
             tsbResetCrops.Click += (s, e) => { cardPreview.ResetView(); cardPreview.ResetCropRegions(); };
             tvwGroups.DoubleClick += OnGroupDoubleClick;
 
+            ApplyToolbarIcons();
+
             // Keep the Card Type combo centered over the card image.
             cardPreview.SizeChanged += (s, e) => CenterCardTypeRow();
             pnlCardType.SizeChanged += (s, e) => CenterCardTypeRow();
+        }
+
+        /// <summary>Applies the crop-toolbar icons (extracted from the legacy CardScanManualAx) so the
+        /// toolbar matches the VB6 look. The Reset button stays a text button.</summary>
+        private void ApplyToolbarIcons()
+        {
+            SetToolbarIcon(tsbPan, "pan.png");
+            SetToolbarIcon(tsbZoom, "zoom.png");
+            SetToolbarIcon(tsbRotate, "rotate.png");
+            SetToolbarIcon(tsbDelete, "delete.png");
+        }
+
+        private static void SetToolbarIcon(ToolStripButton button, string fileName)
+        {
+            Image icon = LoadIcon(fileName);
+            if (icon == null) return;   // fall back to the existing text glyph if the resource is missing
+            button.Image = icon;
+            button.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        }
+
+        private static Image LoadIcon(string fileName)
+        {
+            string resource = "DWPCardScanNet.Icons." + fileName;
+            Assembly asm = Assembly.GetExecutingAssembly();
+            using (var stream = asm.GetManifestResourceStream(resource))
+            {
+                if (stream == null) return null;
+                using (var tmp = Image.FromStream(stream))
+                    return new Bitmap(tmp);   // copy so the image doesn't hold the stream
+            }
         }
 
         /// <summary>Positions the Card Type combo centered over the card image, label to its left.</summary>
