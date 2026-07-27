@@ -17,7 +17,7 @@ namespace DWPCardScanNet
             this.grpSelected = new System.Windows.Forms.GroupBox();
             this.cardPreview = new DWPCardScanNet.CardPreviewControl();
             this.tsCropTools = new System.Windows.Forms.ToolStrip();
-            this.tsbPan = new System.Windows.Forms.ToolStripButton();
+            this.tsbMoveCrop = new System.Windows.Forms.ToolStripButton();
             this.tsbZoom = new System.Windows.Forms.ToolStripButton();
             this.tsbRotate = new System.Windows.Forms.ToolStripButton();
             this.tsbResetCrops = new System.Windows.Forms.ToolStripButton();
@@ -86,11 +86,11 @@ namespace DWPCardScanNet
             //
             this.tsCropTools.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
             this.tsCropTools.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-                this.tsbPan, this.tsbZoom, this.tsbRotate, this.tsbResetCrops, this.tsbDelete });
+                this.tsbMoveCrop, this.tsbZoom, this.tsbRotate, this.tsbResetCrops, this.tsbDelete });
             this.tsCropTools.Dock = System.Windows.Forms.DockStyle.Top;
             this.tsCropTools.Name = "tsCropTools";
-            this.tsbPan.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.tsbPan.Text = "✋"; this.tsbPan.ToolTipText = "Pan";
+            this.tsbMoveCrop.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.tsbMoveCrop.Text = "✋"; this.tsbMoveCrop.ToolTipText = "Move Crop Region";
             this.tsbZoom.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
             this.tsbZoom.Text = "\U0001F50D"; this.tsbZoom.ToolTipText = "Zoom";
             this.tsbRotate.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
@@ -260,7 +260,7 @@ namespace DWPCardScanNet
         private System.Windows.Forms.GroupBox grpSelected;
         private DWPCardScanNet.CardPreviewControl cardPreview;
         private System.Windows.Forms.ToolStrip tsCropTools;
-        private System.Windows.Forms.ToolStripButton tsbPan;
+        private System.Windows.Forms.ToolStripButton tsbMoveCrop;
         private System.Windows.Forms.ToolStripButton tsbZoom;
         private System.Windows.Forms.ToolStripButton tsbRotate;
         private System.Windows.Forms.ToolStripButton tsbResetCrops;

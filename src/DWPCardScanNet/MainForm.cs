@@ -45,13 +45,19 @@ namespace DWPCardScanNet
             btnUndo.Click += OnUndo;
             btnScanCards.Click += OnScan;
             tsbDelete.Click += OnDeleteCard;
-            tsbPan.Click += (s, e) => TogglePreviewMode(CardPreviewControl.InteractionMode.Pan);
-            tsbZoom.Click += (s, e) => TogglePreviewMode(CardPreviewControl.InteractionMode.Zoom);
+            // The hand tool is "Move Crop Region" - it selects the crop-editing mode (the default),
+            // matching the legacy CardScanManualAx. Zoom toggles between zoom and crop-editing.
+            tsbMoveCrop.Click += (s, e) => SetPreviewMode(CardPreviewControl.InteractionMode.EditCrops);
+            tsbZoom.Click += (s, e) => SetPreviewMode(
+                cardPreview.Mode == CardPreviewControl.InteractionMode.Zoom
+                    ? CardPreviewControl.InteractionMode.EditCrops
+                    : CardPreviewControl.InteractionMode.Zoom);
             tsbRotate.Click += (s, e) => cardPreview.RotateView();
             tsbResetCrops.Click += (s, e) => { cardPreview.ResetView(); cardPreview.ResetCropRegions(); };
             tvwGroups.DoubleClick += OnGroupDoubleClick;
 
             ApplyToolbarIcons();
+            SetPreviewMode(CardPreviewControl.InteractionMode.EditCrops);   // default tool = Move Crop Region
 
             // Keep the Card Type combo centered over the card image.
             cardPreview.SizeChanged += (s, e) => CenterCardTypeRow();
@@ -62,7 +68,7 @@ namespace DWPCardScanNet
         /// toolbar matches the VB6 look. The Reset button stays a text button.</summary>
         private void ApplyToolbarIcons()
         {
-            SetToolbarIcon(tsbPan, "pan.png");
+            SetToolbarIcon(tsbMoveCrop, "movecrop.png");
             SetToolbarIcon(tsbZoom, "zoom.png");
             SetToolbarIcon(tsbRotate, "rotate.png");
             SetToolbarIcon(tsbDelete, "delete.png");
@@ -122,12 +128,12 @@ namespace DWPCardScanNet
             LoadQueue();
         }
 
-        /// <summary>Toggles the preview between Edit-crops and the given tool mode; Pan/Zoom are mutually exclusive.</summary>
-        private void TogglePreviewMode(CardPreviewControl.InteractionMode mode)
+        /// <summary>Sets the preview interaction mode and reflects it in the toolbar's checked states.
+        /// Move-Crop (Edit) and Zoom are the two mutually-exclusive modes.</summary>
+        private void SetPreviewMode(CardPreviewControl.InteractionMode mode)
         {
-            bool turnOn = cardPreview.Mode != mode;
-            cardPreview.Mode = turnOn ? mode : CardPreviewControl.InteractionMode.EditCrops;
-            tsbPan.Checked = cardPreview.Mode == CardPreviewControl.InteractionMode.Pan;
+            cardPreview.Mode = mode;
+            tsbMoveCrop.Checked = cardPreview.Mode == CardPreviewControl.InteractionMode.EditCrops;
             tsbZoom.Checked = cardPreview.Mode == CardPreviewControl.InteractionMode.Zoom;
         }
 
