@@ -92,8 +92,8 @@ template, which is never loaded - the real `DWPCardScan.ini` must be created at 
 `CardPreviewControl` has crop-editing parity with the VB6 `CardScanManualAx`: left-drag a crop to
 move it (fixed size), **right-click to recenter it on the cursor**, and a move only acts when the
 cursor is inside exactly one movable region. The **data-header region (finger index 15) is not
-movable**. A **Reset** toolbar button restores all crops to their originally defined positions, and
-the Zoom tool zooms into a **dragged marquee box** (mouse wheel also zooms; pan and 90&#176; view
+movable**. A **Reset** toolbar button restores the view (undoing zoom/pan/rotation) and returns all crops to
+their originally defined positions, and the Zoom tool zooms into a **dragged marquee box** (mouse wheel also zooms; pan and 90&#176; view
 rotation are additional modes). On "Add Card to Group" the adjusted positions are written to a `.crp`
 file (`Core.Grouping.CropRegionFile`, format `FingerIndex,Desc,Top,Left,Height,Width`), which
 `GroupProcessor` reads to override each region's Top/Left. Verified end-to-end: a `.crp` shifting one

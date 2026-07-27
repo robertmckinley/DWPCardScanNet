@@ -96,7 +96,7 @@ namespace DWPCardScanNet
             this.tsbRotate.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
             this.tsbRotate.Text = "↻"; this.tsbRotate.ToolTipText = "Rotate";
             this.tsbResetCrops.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.tsbResetCrops.Text = "Reset"; this.tsbResetCrops.ToolTipText = "Reset crop positions to defaults";
+            this.tsbResetCrops.Text = "Reset"; this.tsbResetCrops.ToolTipText = "Reset zoom/rotation and crop positions";
             this.tsbDelete.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
             this.tsbDelete.Text = "✖"; this.tsbDelete.ToolTipText = "Delete card";
             this.tsbDelete.ForeColor = System.Drawing.Color.Red;
