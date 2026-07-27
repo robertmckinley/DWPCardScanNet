@@ -42,9 +42,11 @@ install.cmd "C:\Apps\DWPCardScanNet"
    The app is **x86** and must run 32-bit (the Aware assemblies are x86).
    **Requires Aware AccuScan version 4.2.1** — the test machine threw errors until
    this version was installed; earlier versions are not supported.
-3. **Site configuration** at `C:\MugConfig\DWPCardScan\DWPCardScan.ini`
-   (card/group definitions, folders, banner, etc.). The app reads this when present,
-   otherwise falls back to the `DWPCardScan.ini` shipped next to the exe.
+3. **Site configuration** `DWPCardScan.ini` (card/group definitions, folders, banner,
+   etc.) **in the application folder, next to `DWPCardScanNet.exe`**. This is the only
+   location checked - there is no shared/hardcoded fallback. If the file is missing the
+   app shows an error and does not start. Replace the shipped fixture `DWPCardScan.ini`
+   with the real site config at install time.
 4. The external scanner app referenced by `ScanShellFilePath` in the .ini
    (e.g. `DWPAwareScanMB.exe`), if the site scans via the external scanner.
 
@@ -64,8 +66,8 @@ The DLL implements `DWPCardScanNet.Core.Processing.IPostProcessor`. See
 
 ## Configuration assumptions (current build)
 
-- Config is loaded from `C:\MugConfig\DWPCardScan\DWPCardScan.ini` (fallback: the
-  copy beside the exe). This location is `MugConfigIni` in `MainForm`.
+- Config is loaded only from `DWPCardScan.ini` in the application folder (next to the
+  exe). There is no fallback location; a missing file is a startup error.
 - **All paths in the .ini are honoured exactly as written** - there is no drive
   remapping. Every folder the app reads or writes (`NISTOutDir`, `GroupPDFFolder`,
   `LogFileDir`, `ToProcessQueue`, `GroupsToProcessFolder`, `GroupStatusReportFolder`)

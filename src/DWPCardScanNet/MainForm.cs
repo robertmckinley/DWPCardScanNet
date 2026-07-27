@@ -22,8 +22,6 @@ namespace DWPCardScanNet
     /// </summary>
     public partial class MainForm : Form
     {
-        private const string MugConfigIni = @"C:\MugConfig\DWPCardScan\DWPCardScan.ini";
-
         private ILog _log = NullLog.Instance;
         private Defaults _defaults;
         private readonly List<CardDefinition> _cardList = new List<CardDefinition>();
@@ -104,13 +102,15 @@ namespace DWPCardScanNet
         {
             try
             {
-                string iniPath = File.Exists(MugConfigIni)
-                    ? MugConfigIni
-                    : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DWPCardScan.ini");
+                // Config must be DWPCardScan.ini in the application folder (next to the exe).
+                // There is no fallback to a shared/hardcoded location - a missing file is an error.
+                string iniPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DWPCardScan.ini");
                 if (!File.Exists(iniPath))
                 {
-                    MessageBox.Show("Configuration file not found:\n" + iniPath, "DWP Card Scan",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show(
+                        "Configuration file not found:\n\n" + iniPath + "\n\n" +
+                        "DWPCardScan.ini must be present in the application folder.",
+                        "DWP Card Scan", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
