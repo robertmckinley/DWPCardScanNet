@@ -251,6 +251,7 @@ namespace DWPCardScanNet
 
             if (_dragIndex >= 0)
             {
+                Cursor = Cursors.Hand;   // keep the hand cursor while moving a crop region
                 PointF inch = PointToInches(e.Location);
                 CropRegion r = _regions[_dragIndex];
                 r.Left = Clamp(inch.X - _grabOffsetInches.X, 0f, _cardWidthInches - r.Width);
@@ -262,7 +263,7 @@ namespace DWPCardScanNet
             if (_mode == InteractionMode.EditCrops)
             {
                 PointF inch = PointToInches(e.Location);
-                Cursor = MovableRegionAt(inch) >= 0 ? Cursors.SizeAll : Cursors.Default;
+                Cursor = MovableRegionAt(inch) >= 0 ? Cursors.Hand : Cursors.Default;
             }
         }
 
