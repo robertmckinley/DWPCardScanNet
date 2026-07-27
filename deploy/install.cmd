@@ -23,8 +23,27 @@ if not exist "%SRC%\DWPCardScanNet.exe" (
 )
 
 echo Installing DWPCardScanNet to "%TARGET%" ...
+
+rem Never overwrite a live site config. Preserve any existing DWPCardScan.ini across
+rem the copy and restore it afterwards, regardless of what the package contains.
+set "CFG=%TARGET%\DWPCardScan.ini"
+set "CFGBAK=%TEMP%\DWPCardScan.ini.installbak"
+set "CFGKEPT="
+if exist "%CFG%" (
+    copy /Y "%CFG%" "%CFGBAK%" >nul
+    set "CFGKEPT=1"
+)
+
 xcopy "%SRC%\*" "%TARGET%\" /E /I /Y >nul
-if errorlevel 1 (
+set "RC=%ERRORLEVEL%"
+
+if defined CFGKEPT (
+    copy /Y "%CFGBAK%" "%CFG%" >nul
+    del "%CFGBAK%" >nul 2>&1
+    echo Preserved existing DWPCardScan.ini.
+)
+
+if not "%RC%"=="0" (
     echo *** COPY FAILED - check write permission to the target folder ***
     exit /b 1
 )
