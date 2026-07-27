@@ -32,6 +32,20 @@ or to a specific location:
 install.cmd "C:\Apps\DWPCardScanNet"
 ```
 
+### Install the site configuration (required, manual)
+
+The package ships a **fixture** `DWPCardScan.ini` next to the exe so the app can start,
+but it is **not** a site's real config. After copying, replace it with the site config:
+
+1. Copy the site's real `DWPCardScan.ini` into the install folder, overwriting the shipped
+   fixture (e.g. `C:\MugConfig\DWPCardScanNet\DWPCardScan.ini`). If the site kept its config
+   at `C:\MugConfig\DWPCardScan\DWPCardScan.ini`, copy that file here.
+2. The app reads `DWPCardScan.ini` **only** from this folder - there is no shared/hardcoded
+   fallback. If it is missing, the app shows an error and will not start.
+3. Verify every folder the .ini references (`NISTOutDir`, `GroupPDFFolder`, `LogFileDir`,
+   `ToProcessQueue`, `GroupsToProcessFolder`, `GroupStatusReportFolder`) exists and is
+   writable on this machine - paths are used exactly as written, with no drive remapping.
+
 ## Target prerequisites
 
 1. **.NET Framework 4.8** runtime.
