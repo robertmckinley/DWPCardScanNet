@@ -18,6 +18,11 @@ if errorlevel 1 (
     exit /b 1
 )
 
+rem Prune unused PdfSharp extras: the charting assembly (we only use core PDF) and the
+rem localized satellite-resource folders (e.g. "de"). Not needed at runtime.
+if exist "%OUT%\PdfSharp.Charting.dll" del /q "%OUT%\PdfSharp.Charting.dll"
+for /d %%D in ("%OUT%\??" "%OUT%\??-??") do rmdir /s /q "%%D" 2>nul
+
 echo.
 echo Package staged at: "%OUT%"
 echo Copy this dist folder to the target machine, then run install.cmd there.
