@@ -7,7 +7,8 @@ rem
 rem  Prerequisites on the target (see DEPLOYMENT.md):
 rem    - .NET Framework 4.8 runtime
 rem    - Aware AccuScan + NISTPack installed (provides the native DLLs; x86)
-rem    - Site config at C:\MugConfig\DWPCardScan\DWPCardScan.ini
+rem    - After install: create the real DWPCardScan.ini in the install folder
+rem      (the package ships only DWPCardScan_Sample.ini, which is never loaded)
 rem ============================================================================
 setlocal
 set "HERE=%~dp0"

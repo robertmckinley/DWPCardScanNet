@@ -36,9 +36,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Copy of a real site .ini, used so the shell has something to load at runtime.
-         This is a fixture only; it does not touch the original VB6 project. -->
-    <None Update="DWPCardScan.ini">
+    <!-- A sample/template .ini shipped alongside the exe. It is NOT loaded at runtime -
+         the app requires the real DWPCardScan.ini in the application folder. Deploying it as
+         *_Sample* keeps a fresh install from silently running on a placeholder config. -->
+    <None Update="DWPCardScan_Sample.ini">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

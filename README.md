@@ -82,8 +82,10 @@ Wires config load, the to-process thumbnail queue, card-type → overlays/key pr
 Process → `GroupProcessor`, Scan → external `ScanShellFilePath` app, and double-click → zoom.
 **This completes the LEADTOOLS elimination** — all four legacy LEAD uses are now GDI+.
 
-Config is loaded from `C:\MugConfig\DWPCardScan\DWPCardScan.ini` when present (falling back to the
-bundled fixture), with `D:\` paths remapped to `C:\MugConfig\DWPCardScan\` for the test box.
+Config is loaded from `DWPCardScan.ini` in the application folder (next to the exe) only - no
+shared/hardcoded location and no fallback; a missing file is a startup error. Paths in the .ini
+are used exactly as written (no drive remapping). The package ships a `DWPCardScan_Sample.ini`
+template, which is never loaded - the real `DWPCardScan.ini` must be created at install time.
 
 ## Interactive crop-region editing
 

@@ -18,7 +18,8 @@ Produces `deploy\dist\DWPCardScanNet\` containing `DWPCardScanNet.exe`, the
 `DWPCardScanNet.Core` / `DWPCardScanNet.Aware` assemblies, the managed Aware
 wrappers (`Aware.AccuScan.dll`, `Aware.NistPack.dll`, `Aware.AwWsq1000.dll`), and
 `PdfSharp.dll` (MIT-licensed; the managed replacement for the VB6 MUGPDF component,
-used to archive scanned groups as PDF when `SaveGroupPDF = Y`).
+used to archive scanned groups as PDF when `SaveGroupPDF = Y`). It also includes
+`DWPCardScan_Sample.ini`, a template - **not** a working config (see the config step below).
 
 ## Install (target machine)
 
@@ -34,14 +35,15 @@ install.cmd "C:\Apps\DWPCardScanNet"
 
 ### Install the site configuration (required, manual)
 
-The package ships a **fixture** `DWPCardScan.ini` next to the exe so the app can start,
-but it is **not** a site's real config. After copying, replace it with the site config:
+The package ships a template named **`DWPCardScan_Sample.ini`** next to the exe. It is a
+reference only - the app never loads it. You must create the real `DWPCardScan.ini`:
 
-1. Copy the site's real `DWPCardScan.ini` into the install folder, overwriting the shipped
-   fixture (e.g. `C:\MugConfig\DWPCardScanNet\DWPCardScan.ini`). If the site kept its config
-   at `C:\MugConfig\DWPCardScan\DWPCardScan.ini`, copy that file here.
+1. In the install folder, copy the site's real config to **`DWPCardScan.ini`** (or rename a
+   copy of `DWPCardScan_Sample.ini` and edit it). If the site kept its config at
+   `C:\MugConfig\DWPCardScan\DWPCardScan.ini`, copy that file here as `DWPCardScan.ini`.
 2. The app reads `DWPCardScan.ini` **only** from this folder - there is no shared/hardcoded
-   fallback. If it is missing, the app shows an error and will not start.
+   fallback. If it is missing, the app shows an error and will not start. (The sample being
+   present is not enough - it must be named exactly `DWPCardScan.ini`.)
 3. Verify every folder the .ini references (`NISTOutDir`, `GroupPDFFolder`, `LogFileDir`,
    `ToProcessQueue`, `GroupsToProcessFolder`, `GroupStatusReportFolder`) exists and is
    writable on this machine - paths are used exactly as written, with no drive remapping.
@@ -59,8 +61,9 @@ but it is **not** a site's real config. After copying, replace it with the site 
 3. **Site configuration** `DWPCardScan.ini` (card/group definitions, folders, banner,
    etc.) **in the application folder, next to `DWPCardScanNet.exe`**. This is the only
    location checked - there is no shared/hardcoded fallback. If the file is missing the
-   app shows an error and does not start. Replace the shipped fixture `DWPCardScan.ini`
-   with the real site config at install time.
+   app shows an error and does not start. The package ships only a template
+   (`DWPCardScan_Sample.ini`); create the real `DWPCardScan.ini` at install time
+   (see the config step above).
 4. The external scanner app referenced by `ScanShellFilePath` in the .ini
    (e.g. `DWPAwareScanMB.exe`), if the site scans via the external scanner.
 
