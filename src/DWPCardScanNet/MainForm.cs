@@ -72,6 +72,15 @@ namespace DWPCardScanNet
             SetToolbarIcon(tsbZoom, "zoom.png");
             SetToolbarIcon(tsbRotate, "rotate.png");
             SetToolbarIcon(tsbDelete, "delete.png");
+
+            // Undo Group button uses the VB6 undo icon (extracted from frmMain's ImageList).
+            Image undo = LoadIcon("undo.png");
+            if (undo != null)
+            {
+                btnUndo.Image = undo;
+                btnUndo.Text = "";
+                btnUndo.ImageAlign = ContentAlignment.MiddleCenter;
+            }
         }
 
         private static void SetToolbarIcon(ToolStripButton button, string fileName)
