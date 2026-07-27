@@ -48,6 +48,7 @@ namespace DWPCardScanNet
             tsbPan.Click += (s, e) => TogglePreviewMode(CardPreviewControl.InteractionMode.Pan);
             tsbZoom.Click += (s, e) => TogglePreviewMode(CardPreviewControl.InteractionMode.Zoom);
             tsbRotate.Click += (s, e) => cardPreview.RotateView();
+            tsbResetCrops.Click += (s, e) => cardPreview.ResetCropRegions();
             tvwGroups.DoubleClick += OnGroupDoubleClick;
 
             // Keep the Card Type combo centered over the card image.

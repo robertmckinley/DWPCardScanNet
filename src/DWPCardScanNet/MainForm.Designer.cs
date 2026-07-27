@@ -20,6 +20,7 @@ namespace DWPCardScanNet
             this.tsbPan = new System.Windows.Forms.ToolStripButton();
             this.tsbZoom = new System.Windows.Forms.ToolStripButton();
             this.tsbRotate = new System.Windows.Forms.ToolStripButton();
+            this.tsbResetCrops = new System.Windows.Forms.ToolStripButton();
             this.tsbDelete = new System.Windows.Forms.ToolStripButton();
             this.pnlCardType = new System.Windows.Forms.Panel();
             this.lblCardType = new System.Windows.Forms.Label();
@@ -85,7 +86,7 @@ namespace DWPCardScanNet
             //
             this.tsCropTools.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
             this.tsCropTools.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-                this.tsbPan, this.tsbZoom, this.tsbRotate, this.tsbDelete });
+                this.tsbPan, this.tsbZoom, this.tsbRotate, this.tsbResetCrops, this.tsbDelete });
             this.tsCropTools.Dock = System.Windows.Forms.DockStyle.Top;
             this.tsCropTools.Name = "tsCropTools";
             this.tsbPan.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
@@ -94,6 +95,8 @@ namespace DWPCardScanNet
             this.tsbZoom.Text = "\U0001F50D"; this.tsbZoom.ToolTipText = "Zoom";
             this.tsbRotate.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
             this.tsbRotate.Text = "↻"; this.tsbRotate.ToolTipText = "Rotate";
+            this.tsbResetCrops.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.tsbResetCrops.Text = "Reset"; this.tsbResetCrops.ToolTipText = "Reset crop positions to defaults";
             this.tsbDelete.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
             this.tsbDelete.Text = "✖"; this.tsbDelete.ToolTipText = "Delete card";
             this.tsbDelete.ForeColor = System.Drawing.Color.Red;
@@ -260,6 +263,7 @@ namespace DWPCardScanNet
         private System.Windows.Forms.ToolStripButton tsbPan;
         private System.Windows.Forms.ToolStripButton tsbZoom;
         private System.Windows.Forms.ToolStripButton tsbRotate;
+        private System.Windows.Forms.ToolStripButton tsbResetCrops;
         private System.Windows.Forms.ToolStripButton tsbDelete;
         private System.Windows.Forms.Panel pnlCardType;
         private System.Windows.Forms.Label lblCardType;

@@ -9,11 +9,18 @@ using DWPCardScanNet.Core.Configuration;
 namespace DWPCardScanNet
 {
     /// <summary>
-    /// Displays a scanned card with the selected card type's crop regions overlaid in red. The
-    /// operator can drag the crop regions (Edit mode), pan, zoom (mouse wheel or Zoom tool), and
-    /// rotate the view. A single GDI+ transform (pan * rotate * zoom) is applied to both the image
-    /// and the overlays, and inverted for hit-testing, so crop editing works in any view state.
-    /// GDI+ replacement for the VB6 LEAD display / CardScanManualAx.
+    /// Displays a scanned card with the selected card type's crop regions overlaid in red. GDI+
+    /// replacement for the VB6 LEAD display / CardScanManualAx, with feature parity for crop editing:
+    /// <list type="bullet">
+    /// <item>Edit mode: left-drag a crop to move it; right-click to recenter it on the cursor. A move
+    /// only acts when the cursor is inside exactly one movable region; the data header (index 15) is
+    /// never movable.</item>
+    /// <item><see cref="ResetCropRegions"/> restores all crops to their originally defined positions.</item>
+    /// <item>Zoom mode: drag a marquee box to zoom into it. Mouse wheel also zooms; pan and 90&#176;
+    /// view rotation are available as modes.</item>
+    /// </list>
+    /// A single GDI+ transform (pan * rotate * zoom) is applied to both the image and the overlays, and
+    /// inverted for hit-testing, so crop editing works in any view state.
     /// </summary>
     public sealed class CardPreviewControl : Panel
     {
@@ -23,7 +30,12 @@ namespace DWPCardScanNet
         private float _cardWidthInches = 8f;
         private float _cardHeightInches = 8f;
         private readonly List<CropRegion> _regions = new List<CropRegion>();
+        private readonly List<CropRegion> _originalRegions = new List<CropRegion>(); // as first supplied, for Reset
         private const int MaxDisplayDim = 1200;
+
+        /// <summary>Aware finger index of the Type-7 data-header region; it is drawn but never movable
+        /// (matches the legacy CardScanManualAx, which excluded index 15 from crop moves).</summary>
+        private const int DataHeaderFingerIndex = 15;
 
         // View transform state.
         private float _zoom = 1f;
@@ -36,6 +48,11 @@ namespace DWPCardScanNet
         private PointF _grabOffsetInches;
         private bool _panning;
         private Point _panStart;
+
+        // Marquee-zoom state (Zoom mode: drag a box, zoom into it - like the legacy Zoom tool).
+        private bool _marquee;
+        private Point _marqueeStart;
+        private Point _marqueeCurrent;
 
         public CardPreviewControl()
         {
@@ -82,8 +99,13 @@ namespace DWPCardScanNet
                 }
             }
 
+            _originalRegions.Clear();
             if (regions != null)
-                foreach (CropRegion r in regions) _regions.Add(Clone(r));
+                foreach (CropRegion r in regions)
+                {
+                    _regions.Add(Clone(r));
+                    _originalRegions.Add(Clone(r));   // snapshot for ResetCropRegions
+                }
 
             Invalidate();
         }
@@ -92,8 +114,20 @@ namespace DWPCardScanNet
         {
             DisposeImage();
             _regions.Clear();
+            _originalRegions.Clear();
             _dragIndex = -1;
             ResetView();
+            Invalidate();
+        }
+
+        /// <summary>Restores every crop region to the position it had when the card was loaded,
+        /// undoing manual moves (port of the legacy Reset button in CropMove mode). Leaves the view
+        /// transform - use <see cref="ResetView"/> for that.</summary>
+        public void ResetCropRegions()
+        {
+            _dragIndex = -1;
+            _regions.Clear();
+            foreach (CropRegion r in _originalRegions) _regions.Add(Clone(r));
             Invalidate();
         }
 
@@ -140,6 +174,14 @@ namespace DWPCardScanNet
                 }
                 e.Graphics.ResetTransform();
             }
+
+            // Marquee is drawn in screen space, on top of the (transformed) image.
+            if (_marquee)
+            {
+                Rectangle box = MarqueeRect();
+                using (var mp = new Pen(Color.White) { DashStyle = DashStyle.Dash })
+                    e.Graphics.DrawRectangle(mp, box);
+            }
         }
 
         // ---- mouse ----------------------------------------------------------------------
@@ -152,7 +194,13 @@ namespace DWPCardScanNet
 
             if (_mode == InteractionMode.Zoom)
             {
-                ZoomAt(e.Location, e.Button == MouseButtons.Right ? 1f / 1.25f : 1.25f);
+                // Left-drag a marquee to zoom into that box (legacy Zoom tool). Wheel still zooms too.
+                if (e.Button == MouseButtons.Left)
+                {
+                    _marquee = true;
+                    _marqueeStart = e.Location;
+                    _marqueeCurrent = e.Location;
+                }
                 return;
             }
             if (_mode == InteractionMode.Pan)
@@ -161,18 +209,22 @@ namespace DWPCardScanNet
                 return;
             }
 
-            // Edit mode: pick the topmost crop region under the cursor.
-            if (e.Button != MouseButtons.Left) return;
+            // Edit mode. The data header (index 15) is not movable, and a move only starts when the
+            // cursor is inside exactly one movable region (no ambiguous grab) - matching the legacy control.
             PointF inch = PointToInches(e.Location);
-            for (int i = _regions.Count - 1; i >= 0; i--)
+            int idx = MovableRegionAt(inch);
+            if (idx < 0) return;
+
+            if (e.Button == MouseButtons.Left)
             {
-                if (InchInRegion(_regions[i], inch))
-                {
-                    _dragIndex = i;
-                    _grabOffsetInches = new PointF(inch.X - _regions[i].Left, inch.Y - _regions[i].Top);
-                    Invalidate();
-                    return;
-                }
+                _dragIndex = idx;
+                _grabOffsetInches = new PointF(inch.X - _regions[idx].Left, inch.Y - _regions[idx].Top);
+                Invalidate();
+            }
+            else if (e.Button == MouseButtons.Right)
+            {
+                // Right-click recenters the region on the cursor (legacy quick-reposition).
+                CenterRegionOn(idx, inch);
             }
         }
 
@@ -180,6 +232,13 @@ namespace DWPCardScanNet
         {
             base.OnMouseMove(e);
             if (_display == null) return;
+
+            if (_marquee)
+            {
+                _marqueeCurrent = e.Location;
+                Invalidate();
+                return;
+            }
 
             if (_panning)
             {
@@ -203,10 +262,7 @@ namespace DWPCardScanNet
             if (_mode == InteractionMode.EditCrops)
             {
                 PointF inch = PointToInches(e.Location);
-                bool over = false;
-                for (int i = _regions.Count - 1; i >= 0; i--)
-                    if (InchInRegion(_regions[i], inch)) { over = true; break; }
-                Cursor = over ? Cursors.SizeAll : Cursors.Default;
+                Cursor = MovableRegionAt(inch) >= 0 ? Cursors.SizeAll : Cursors.Default;
             }
         }
 
@@ -214,6 +270,11 @@ namespace DWPCardScanNet
         {
             base.OnMouseUp(e);
             _panning = false;
+            if (_marquee)
+            {
+                _marquee = false;
+                ZoomToScreenRect(MarqueeRect());
+            }
             if (_dragIndex >= 0) { _dragIndex = -1; Invalidate(); }
         }
 
@@ -316,6 +377,57 @@ namespace DWPCardScanNet
 
         private bool InchInRegion(CropRegion r, PointF inch) =>
             inch.X >= r.Left && inch.X <= r.Left + r.Width && inch.Y >= r.Top && inch.Y <= r.Top + r.Height;
+
+        /// <summary>Index of the single movable region under <paramref name="inch"/>, or -1 if none or
+        /// more than one. The data-header region (index 15) is never movable. Matches the legacy control:
+        /// it only acted when the cursor was inside exactly one non-header rectangle.</summary>
+        private int MovableRegionAt(PointF inch)
+        {
+            int found = -1, count = 0;
+            for (int i = 0; i < _regions.Count; i++)
+            {
+                if (_regions[i].FingerIndex == DataHeaderFingerIndex) continue;
+                if (InchInRegion(_regions[i], inch)) { count++; found = i; }
+            }
+            return count == 1 ? found : -1;
+        }
+
+        private void CenterRegionOn(int idx, PointF inch)
+        {
+            CropRegion r = _regions[idx];
+            r.Left = Clamp(inch.X - r.Width / 2f, 0f, _cardWidthInches - r.Width);
+            r.Top = Clamp(inch.Y - r.Height / 2f, 0f, _cardHeightInches - r.Height);
+            Invalidate();
+        }
+
+        /// <summary>The current marquee as a normalised client-space rectangle.</summary>
+        private Rectangle MarqueeRect()
+        {
+            int x = Math.Min(_marqueeStart.X, _marqueeCurrent.X);
+            int y = Math.Min(_marqueeStart.Y, _marqueeCurrent.Y);
+            int w = Math.Abs(_marqueeCurrent.X - _marqueeStart.X);
+            int h = Math.Abs(_marqueeCurrent.Y - _marqueeStart.Y);
+            return new Rectangle(x, y, w, h);
+        }
+
+        /// <summary>Zooms so the given client-space box fills the view, keeping its centre centred
+        /// (legacy Zoom tool). Ignored for a too-small box (treated as a click, not a drag).</summary>
+        private void ZoomToScreenRect(Rectangle box)
+        {
+            if (box.Width < 6 || box.Height < 6) return;
+            if (ClientSize.Width <= 0 || ClientSize.Height <= 0) return;
+
+            PointF centerLocal = ToLocal(new Point(box.X + box.Width / 2, box.Y + box.Height / 2));
+            float s = Math.Min((float)ClientSize.Width / box.Width, (float)ClientSize.Height / box.Height);
+            float newZoom = Clamp(_zoom * s, 1f, 12f);
+            if (Math.Abs(newZoom - _zoom) < 0.0001f) { Invalidate(); return; }
+            _zoom = newZoom;
+
+            PointF screenAfter = FromLocal(centerLocal);
+            _panX += ClientSize.Width / 2f - screenAfter.X;
+            _panY += ClientSize.Height / 2f - screenAfter.Y;
+            Invalidate();
+        }
 
         private void UpdateCursor()
         {
