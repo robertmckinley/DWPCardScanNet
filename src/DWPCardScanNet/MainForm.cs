@@ -57,6 +57,7 @@ namespace DWPCardScanNet
             tvwGroups.DoubleClick += OnGroupDoubleClick;
 
             ApplyToolbarIcons();
+            ApplyWindowIcon();
             SetPreviewMode(CardPreviewControl.InteractionMode.EditCrops);   // default tool = Move Crop Region
 
             // Keep the Card Type combo centered over the card image.
@@ -89,6 +90,13 @@ namespace DWPCardScanNet
             if (icon == null) return;   // fall back to the existing text glyph if the resource is missing
             button.Image = icon;
             button.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        }
+
+        /// <summary>Sets the window (title-bar/taskbar) icon to the original VB6 icon, embedded as app.ico.</summary>
+        private void ApplyWindowIcon()
+        {
+            using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("DWPCardScanNet.app.ico"))
+                if (stream != null) Icon = new Icon(stream);
         }
 
         private static Image LoadIcon(string fileName)

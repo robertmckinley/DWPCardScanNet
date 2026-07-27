@@ -23,6 +23,8 @@
     <Version>2.0.0</Version>
     <AssemblyVersion>2.0.0.0</AssemblyVersion>
     <FileVersion>2.0.0.0</FileVersion>
+    <!-- Window/taskbar/exe icon: the original VB6 icon (extracted from frmMain.frx). -->
+    <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -39,6 +41,8 @@
     <!-- Crop-toolbar icons, extracted from the legacy CardScanManualAx control so the
          toolbar matches the VB6 look. Embedded so nothing extra ships with the exe. -->
     <EmbeddedResource Include="Icons\*.png" />
+    <!-- The VB6 form icon, also embedded so MainForm can set it as the window Icon. -->
+    <EmbeddedResource Include="app.ico" />
   </ItemGroup>
 
   <ItemGroup>
