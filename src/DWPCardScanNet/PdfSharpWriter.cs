@@ -15,13 +15,19 @@ namespace DWPCardScanNet
     /// <para>
     /// The scanned cards are large 8-bpp BMPs (~16 MB each at 500 DPI). Embedding them verbatim would
     /// produce enormous PDFs, so each is re-encoded to a JPEG in memory before it is placed on a page.
-    /// Each page is sized to the image's natural dimensions (at its DPI), matching a "one card per page"
-    /// archival layout.
+    /// Each page is sized to the image at <see cref="ScanDpi"/> (4000 px = 8"), so it prints at actual size.
     /// </para>
     /// </summary>
     public sealed class PdfSharpWriter : IPdfWriter
     {
-        private const long JpegQuality = 85L;
+        // Fingerprint cards: keep full detail. GDI+ quality 100 (quantization 1 at every frequency) is the
+        // only setting at least as fine as the VB6/MUGPDF PDFs (LEAD QFactor 2 = quantization 2 throughout);
+        // 98 and below quantize fine ridge detail more coarsely. ~14 MB per two-sided card.
+        private const long JpegQuality = 100L;
+
+        // Scan resolution. Forced onto each image so the page size never depends on the BMP header:
+        // a BMP without DPI would otherwise default to 96 dpi and give a ~41.7" page.
+        private const float ScanDpi = 500f;
 
         public void CreatePdf(IReadOnlyList<string> imagePaths, string pdfPath, string title)
         {
@@ -64,6 +70,9 @@ namespace DWPCardScanNet
             var ms = new MemoryStream();
             using (var bmp = new Bitmap(imagePath))
             {
+                // Written into the JPEG header; PDFsharp sizes the page from it (PointWidth = px * 72 / dpi).
+                bmp.SetResolution(ScanDpi, ScanDpi);
+
                 ImageCodecInfo jpegCodec = GetEncoder(ImageFormat.Jpeg);
                 if (jpegCodec != null)
                 {
